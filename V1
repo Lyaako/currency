@@ -1,0 +1,186 @@
+#include <iostream>
+#include <fstream>
+
+struct Dollar {
+    char date[11]; // чч.мм.гг
+    char curs[10];
+};
+struct Euro {
+    char date[11]; // чч.мм.гг
+    char curs[10];
+};
+void PrintAllDollar(Dollar* dollar, int count_Lines) {
+    std::cout << "Данные по доллару:" << std::endl;
+    for (int i = 0; i < count_Lines; i++) {
+        std::cout << "Дата: " << dollar[i].date << ", Курс: " << dollar[i].curs << std::endl;
+    }
+}
+
+void PrintAllEuro(Euro* euro, int count_Lines) {
+    std::cout << "Данные по евро:" << std::endl;
+    for (int i = 0; i < count_Lines; i++) {
+        std::cout << "Дата: " << euro[i].date << ", Курс: " << euro[i].curs << std::endl;
+    }
+}
+
+int MyStrcmp(const char* str1, const char* str2) {
+    while (*str1 != '\0' && *str2 != '\0') {
+        if (*str1 != *str2) {
+            return *str1 - *str2;
+        }
+        str1++;
+        str2++;
+    }
+    return *str1 - *str2;
+}
+
+void CountLines(std::ifstream& file, int* count_Lines) {
+    int lineCount = 0;
+    char ch;
+    while (file.get(ch)) {
+        if (ch == '\n') {
+            lineCount++;
+        }
+    }
+    *count_Lines = lineCount;
+    file.clear();
+    file.seekg(0);
+}
+
+double CharToDouble(const char* curs){
+    int count = 0;
+    double charToDouble = 0.0;
+    for(int i = 0; curs[i] != '\0';i++){
+        if(curs[i] == '.'){
+            break;}
+        else{count++;}
+    }
+    if (count == 2){
+        charToDouble = (curs[0]-'0')*10 + (curs[1] -'0') + (curs[3]- '0')* 0.1 + (curs[4] -'0')*0.01 +(curs[5] -'0')*0.001 + (curs[6] -'0')*0.0001;
+    }
+    if (count == 3){
+        charToDouble = (curs[0]-'0')*100.0 + (curs[1] -'0')*10.0 + (curs[2] -'0') + (curs[4]- '0')* 0.1 + (curs[5] -'0')*0.01 +(curs[6] -'0')*0.001 + (curs[7] -'0')*0.0001;
+    }
+    return charToDouble;
+}
+
+int FindIndexByDate(Dollar* dollar, int count_Lines, const char* date) {
+    for (int i = 0; i < count_Lines; i++) {
+        if (MyStrcmp(dollar[i].date, date) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+int FindIndexByDate(Euro* euro, int count_Lines, const char* date) {
+    for (int i = 0; i < count_Lines; i++) {
+        if (MyStrcmp(euro[i].date, date) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+double CalculationDollar(Dollar* dollar, int count_Lines, const char* startDate, const char* endDate) {
+    int startIndex = FindIndexByDate(dollar, count_Lines, startDate);
+    int endIndex = FindIndexByDate(dollar, count_Lines, endDate);
+    if (startIndex == -1 || endIndex == -1) {
+        std::cerr << "Одна или обе даты не найдены." << std::endl;
+        return -1;
+    }
+    double startRate = CharToDouble(dollar[startIndex].curs);
+    double endRate = CharToDouble(dollar[endIndex].curs);
+    double rateChange = ((endRate - startRate) / startRate) * 100;
+    return rateChange;
+}
+double CalculationEuro(Euro* euro, int count_Lines, const char* startDate, const char* endDate) {
+    int startIndex = FindIndexByDate(euro, count_Lines, startDate);
+    int endIndex = FindIndexByDate(euro, count_Lines, endDate);
+
+    if (startIndex == -1 || endIndex == -1) {
+        return -1;
+    }
+    double startRate = CharToDouble(euro[startIndex].curs);
+    double endRate = CharToDouble(euro[endIndex].curs);
+    double rateChange = ((endRate - startRate) / startRate) * 100;
+    return rateChange;
+}
+
+void IsFail(std::ifstream& file1, std::ifstream& file2){
+        if (file1.fail()) {
+            std::cout << "Ошибка при чтении строки из файла 1." << std::endl;
+        }
+        if (file2.fail()) {
+            std::cout << "Ошибка при чтении строки из файла 2." << std::endl;
+        }
+}
+void AddInfo(Dollar dollar[], Euro euro[], const char lineD[], const char lineE[], int lineNum) {
+    for (int i = 0; i < 10;i++) {
+        dollar[lineNum].date[i] = lineE[i];
+        euro[lineNum].date[i] = lineE[i];
+    }
+    dollar[lineNum].date[10] = '\0';
+    euro[lineNum].date[10] = '\0';
+
+    int sizeCurs = 0;
+    for (int i = 11; lineD[i] != '\r' && sizeCurs < 10; i++) {
+        dollar[lineNum].curs[sizeCurs] = lineD[i];
+        sizeCurs++;
+    }
+    dollar[lineNum].curs[sizeCurs] = '\0';
+
+    sizeCurs = 0;
+    for (int i = 11; lineE[i] != '\r' && sizeCurs < 10; i++) {
+        euro[lineNum].curs[sizeCurs] = lineE[i];
+        sizeCurs++;
+    }
+    euro[lineNum].curs[sizeCurs] = '\0';
+}
+
+
+int main() {
+    std::ifstream file1("FullDollarC.csv");
+    std::ifstream file2("FullEuroC.csv");
+
+    int count_Lines;
+    CountLines(file1, &count_Lines);
+
+    Dollar *dollar;
+    dollar = new Dollar[count_Lines+1];
+    Euro* euro = new Euro[count_Lines+1];
+
+    for (int lineNum = 0; lineNum < count_Lines; lineNum++) {
+        char lineD[26];
+        file1.getline(lineD, sizeof(lineD));
+        char lineE[26];
+        file2.getline(lineE, sizeof(lineE));
+
+        IsFail(file1, file2);
+        AddInfo(dollar,euro,lineD,lineE,lineNum);
+    }
+    char startDate[11];
+    char endDate[11];
+    PrintAllDollar(dollar, count_Lines);
+    PrintAllEuro(euro, count_Lines);
+    std::cout << "Введите дату начала в формате чч.мм.гг: ";
+    std::cin >> startDate;
+    std::cout << "Введите дату окончания в формате чч.мм.гг: ";
+    std::cin >> endDate;
+
+    double rateChangeDollar = CalculationDollar(dollar, count_Lines, startDate, endDate);
+    double rateChangeEuro = CalculationEuro(euro, count_Lines, startDate, endDate);
+if (rateChangeDollar != -1) {
+        std::cout << "Изменение курса USD между " << startDate << " и " << endDate << " составляет: "
+                  << rateChangeDollar << "%" << std::endl;
+    }
+
+    if (rateChangeEuro != -1) {
+        std::cout << "Изменение курса EUR между " << startDate << " и " << endDate << " составляет: "
+                  << rateChangeEuro << "%" << std::endl;
+    }
+    delete[] dollar;
+    delete[] euro;
+    file1.close();
+    file2.close();
+    return 0;
+}
